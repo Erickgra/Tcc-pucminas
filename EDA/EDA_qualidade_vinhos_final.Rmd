@@ -1,0 +1,423 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+EDA do Data Set Wine Quality por Ericsson Graciolli
+para a Disciplina de TCC da Pós-graduação de 
+Ciência de Dados e Big Data da PuC Minas.
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Carregue aqui todos os pacotes utilizados 
+# na sua análise realizada neste arquivo fonte.
+
+library(ggplot2)
+library(scales)
+library(memisc)
+library(RColorBrewer)
+library(lattice)
+library(MASS)
+library(dplyr)
+library(reshape)
+library(gridExtra)
+library('RCurl')
+library('bitops')
+library(reshape)
+library(plyr)
+library(GGally)
+library(ggpubr)
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(ggpubr)
+library(grid)
+suppressMessages(library(psych))
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Carregamento dos dados disponibilizados no repositório
+# Wine Quality Data Set (https://archive.ics.uci.edu/ml/datasets/Wine%2BQuality)
+#getwd()
+#As bases de dados serão armazenadas nas variaveis vinho_tinto e vinho_branco
+vinho_tinto <- read.csv('winequality/winequality-red.csv', sep = ";")
+vinho_branco <- read.csv('winequality/winequality-white.csv', sep = ";")
+
+#Vamos observar a estrutura de variaveis presentes na base de dados
+#str(vinho_tinto)
+#str(vinho_branco)
+
+#E também visualizaremos um sumário para cada variavel, informandos os valores 
+#dos quartis;
+summary(vinho_tinto)
+summary(vinho_branco)
+
+#Criaremos uma variavel categorica para refletir os valores atribuidos a 
+#variavel quality e facilitar as proximas analises.
+vinho_tinto$avaliacao <- ifelse(vinho_tinto$quality <= 4, 'baixa', ifelse(
+  vinho_tinto$quality <= 6, 'média', 'alta'))
+
+vinho_branco$avaliacao <- ifelse(vinho_branco$quality <= 4, 'baixa', ifelse(
+  vinho_branco$quality <= 6, 'média', 'alta'))
+
+#Ordenando pela variavel avaliacao
+vinho_tinto$avaliacao <- ordered(vinho_tinto$avaliacao,
+                       levels = c('baixa', 'média', 'alta'))
+
+vinho_branco$avaliacao <- ordered(vinho_branco$avaliacao,
+                       levels = c('baixa', 'média', 'alta'))
+
+```
+
+# Conhecendo os conjuntos de dados
+
+O conjunto de dados winequality-red possui 1599 observações e 12 variaveis 
+relacionadas. Sendo que para facilitar as análises posteriores foi criada uma 
+nova variável chamada de 'avaliacao'.
+
+O conjunto de dados winequality-white possui 4898 observações e 12 variaveis 
+relacionadas. Sendo que para facilitar as análises posteriores foi criada uma 
+nova variável chamada de 'avaliacao'.
+
+Nos histogramas abaixo distribuiremos as obserções de acordo do os valores 
+atribuídos à variável quality.
+
+### Histograma da variável qualidade segmentada por avaliação para cada tipo de vinho
+
+```{r echo=FALSE, Univariate_Plots}
+#Histograma da variavel qualidade segmentada por avaliacao
+p1 <- ggplot(aes(quality, fill = avaliacao), data = vinho_tinto) +
+  geom_histogram() +
+  xlab("Nota de Qualidade") + 
+  ylab("Nº de observações") +
+  ggtitle("Qualidade dos Vinhos Tintos")
+
+p2 <- ggplot(aes(quality, fill = avaliacao), data = vinho_branco) +
+  geom_histogram() +
+  xlab("Nota de Qualidade") + 
+  ylab("Nº de observações") +
+  ggtitle("Qualidade dos Vinhos Brancos")
+
+grid.arrange(p1, p2, ncol=2)
+```
+
+### Matriz de correlação entre as variáveis do conjunto de dados
+
+Por meio da matriz de correlação podemos encontrar os relacionamentos mais
+significativos entre as variáveis do conjunto de dados.
+
+```{r echo=FALSE, Bivariate_Plots}
+#Criando uma matriz de correlação entre as variaveis
+M <- cor(vinho_tinto %>%
+    # removendo colunas não numéricas
+    dplyr::select(-avaliacao) %>%
+    mutate(
+      # Quality precisa estar no formato numérico
+      quality = as.numeric(quality)
+    )
+  )
+
+title <- "Matriz de Correlação vinhos Tintos"
+corrplot(M, method="number", tl.cex = 0.8, number.cex=0.70, tl.col="black", 
+         tl.srt=45, title = title, mar=c(0,0,1,0))
+
+
+N <- cor(vinho_branco %>%
+    # removendo colunas não numéricas
+    dplyr::select(-avaliacao) %>%
+    mutate(
+      # Quality precisa estar no formato numérico
+      quality = as.numeric(quality)
+    )
+  )
+
+title <- "Matriz de Correlação vinhos Brancos"
+corrplot(N, method="number", tl.cex = 0.8, number.cex=0.70, tl.col="black", 
+         tl.srt=45, title = title, mar=c(0,0,1,0))
+
+
+#Criando uma matriz de correlação entre as variaveis
+#pairs.panels(vinho_tinto,pch=".", main="Correlação entre as variáveis")
+
+#=========================
+
+```
+
+### Box plot entre Teor Alcoólico e Qualidade
+
+Como existe uma correlação significativa entre as variáveis alcohol e quality 
+para ambos os tipos de vinho, podemos analisar adistribuição das observações 
+entre as categorias de Avaliação.
+E verificamos que existe uma diferenciação do teor alcoólico dos vinhos com 
+uma avaliação mais alta.
+
+```{r echo=FALSE, Bivariate_Plots_2}
+#As tres maiores correlações estão entre qualidade e: alcohol, volatile.acidity 
+#e sulphates
+
+#Box plot - Alcohol x quality, segmentado por Avaliacao
+#ggplot(aes(x=quality, y=alcohol, color=avaliacao), data=vinho_tinto) +
+#  geom_boxplot() +
+#  geom_jitter(alpha=1/8) +
+#  facet_wrap(~avaliacao) +
+#  scale_color_brewer(type='qual')
+
+p1 <- ggplot(aes(x=avaliacao, y=alcohol), data=vinho_tinto) +
+  #geom_jitter(alpha=1/8) +
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=4) +
+  xlab("Avaliação") +
+  ylab("Alcohol (% by volume)") +
+  ggtitle("Teor Alcoólico dos Vinhos Tintos")
+
+p2 <- ggplot(aes(x = quality, y = alcohol), data = vinho_tinto) +
+  geom_smooth(aes(color=avaliacao), stat = "summary", fun.y = mean) +
+  xlab("Qualidade") +
+  ylab("Alcohol (% by volume)")
+
+p3 <- ggplot(aes(x=avaliacao, y=alcohol), data=vinho_branco) +
+  #geom_jitter(alpha=1/8) +
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=4) +
+  xlab("Avaliação") +
+  ylab("Alcohol (% by volume)") +
+  ggtitle("Teor Alcoólico dos Vinhos Brancos")
+
+p4 <- ggplot(aes(x = quality, y = alcohol), data = vinho_branco) +
+  geom_smooth(aes(color=avaliacao), stat = "summary", fun.y = mean) +
+  xlab("Qualidade") +
+  ylab("Alcohol (% by volume)")
+
+grid.arrange(p1, p2, p3, p4, ncol=2)
+```
+
+### Box plot entre Volatile.acidity e Quality
+
+Também existe uma correlação significativa entre as variáveis volatie.acidity e 
+quality para os vinhos tintos e que não se repete para os vinhos brancos.
+Para os vinhos tintos, observamos que a volatile.acidity cai de acordo com que
+as notas de qualidade aumentam.
+
+```{r}
+#Box plot - Volatile.acidity x quality, segmentado por Avaliacao
+#ggplot(aes(x=quality, y=volatile.acidity, color=avaliacao), data=vinho_tinto) +
+#  geom_boxplot() +
+#  geom_jitter(alpha=1/8) +
+#  facet_wrap(~avaliacao) +
+#  scale_color_brewer(type='qual')
+
+p1 <- ggplot(aes(x=avaliacao, y=volatile.acidity), data=vinho_tinto) +
+  #geom_jitter(alpha=1/8) +
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=4) +
+  xlab("Avaliação") +
+  ylab("Volatile acidity (acetic acid - g / dm^3)") +
+  ggtitle("Acidez Volátil dos Vinhos Tintos")
+
+p2 <- ggplot(aes(x = quality, y = volatile.acidity), data = vinho_tinto) +
+  geom_smooth(aes(color=avaliacao), stat = "summary", fun.y = mean) +
+  xlab("Qualidade") +
+  ylab("Volatile acidity (acetic acid - g / dm^3)")
+
+p3 <- ggplot(aes(x=avaliacao, y=volatile.acidity), data=vinho_branco) +
+  #geom_jitter(alpha=1/8) +
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=4) +
+  xlab("Avaliação") +
+  ylab("Volatile acidity (acetic acid - g / dm^3)") +
+  ggtitle("Acidez Volátil dos Vinhos Brancos")
+
+p4 <- ggplot(aes(x = quality, y = volatile.acidity), data = vinho_branco) +
+  geom_smooth(aes(color=avaliacao), stat = "summary", fun.y = mean) +
+  xlab("Qualidade") +
+  ylab("Volatile acidity (acetic acid - g / dm^3)")
+
+grid.arrange(p1, p2, p3, p4, ncol=2)
+
+```
+
+### Box plot entre Density e Quality
+
+Já para o conjunto de dados de vinho branco, há uma correlação identificável 
+entre as variáveis density e quality. Assim, podemos analisar a distribuição 
+das observações entre as categorias de Avaliação. Infelizmente como a correlação
+entre as variáveis não é tão elavada, não foi possível identificar com ênfase no
+gráfico a segmentação entre classes de avaliação.
+
+```{r}
+p1 <- ggplot(aes(x=avaliacao, y=density), data=vinho_tinto) +
+  #geom_jitter(alpha=1/8) +
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=4) +
+  scale_y_continuous(limits = c(0.990,1.005))  +
+  xlab("Avaliação") +
+  ylab("Density (g / cm^3)") +
+  ggtitle("Densidade dos Vinhos Tintos")
+
+p2 <- ggplot(aes(x = quality, y =density), data = vinho_tinto) +
+  #geom_point(alpha = 1/10, size = 1/2, position = 'jitter') +
+  #geom_smooth(aes(), stat = "summary", fun.y = mean) +
+  geom_smooth(aes(color=avaliacao), stat = "summary", fun.y = mean)+
+  scale_y_continuous(limits = c(0.990,1.005)) +
+  xlab("Qualidade") +
+  ylab("Density (g / cm^3)")
+
+p3 <- ggplot(aes(x=avaliacao, y=density), data=vinho_branco) +
+  #geom_jitter(alpha=1/8) +
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=4) +
+  scale_y_continuous(limits = c(0.990,1.005))  +
+  xlab("Avaliação") +
+  ylab("Density (g / cm^3)") +
+  ggtitle("Densidade dos Vinhos Brancos")
+
+p4 <- ggplot(aes(x = quality, y =density), data = vinho_branco) +
+  #geom_point(alpha = 1/10, size = 1/2, position = 'jitter') +
+  #geom_smooth(aes(), stat = "summary", fun.y = mean) +
+  geom_smooth(aes(color=avaliacao), stat = "summary", fun.y = mean) +
+  scale_y_continuous(limits = c(0.990,1.005)) +
+  xlab("Qualidade") +
+  ylab("Density (g / cm^3)")
+
+grid.arrange(p1, p2, p3, p4, ncol=2)
+
+```
+
+### Relação entre Qualidade e as três variáveis com maior correlação para cada tipo de vinho
+
+Após analisarmos cada uma das uma das correlações de forma individualizada, 
+podemos construir uma visão consolidada entre elas. E verificamos o 
+comportamento de cada uma delas com o aumento das notas de qualidade, onde 
+alcohol tem uma variação positiva, volatile.acidity negativa e sulphates segue 
+uma distribuição normal, no caso dos vinhos tintos.
+
+```{r}
+# Relacao Qualidade e tres variaveis com mais correlacao para os vinhos tinto
+
+p1 <- ggplot(aes(x = alcohol, y =quality), data = vinho_tinto) +
+  geom_point(alpha = 1/10, size = 1/2, position = 'jitter') +
+  #geom_line(aes(), stat = "summary", fun.y = mean)
+  geom_smooth(se = FALSE,color='red') +
+  xlab("% by volume") +
+  ylab("Qualidade") +
+  ggtitle("Alcohol")
+
+p2 <- ggplot(aes(x = volatile.acidity, y =quality), data = vinho_tinto) +
+  geom_point(alpha = 1/10, size = 1/2, position = 'jitter') +
+  #geom_line(aes(), stat = "summary", fun.y = mean)
+  geom_smooth(se = FALSE,color='red') +
+  xlab("Acetic acid - g / dm^3") +
+  ylab("Qualidade") +
+  ggtitle("Volatile.acidity")
+
+p3 <- ggplot(aes(x = sulphates, y =quality), data = vinho_tinto) +
+  geom_point(alpha = 1/10, size = 1/2, position = 'jitter') +
+  #geom_line(aes(), stat = "summary", fun.y = mean)
+  geom_smooth(se = FALSE,color='red') +
+  scale_x_log10() +
+  xlab("potassium sulphate - g / dm3") +
+  ylab("Qualidade") +
+  ggtitle("Sulphates")
+
+grid.arrange(p1, p2, p3, ncol=3, top = textGrob("3 variáveis com maior correlação - vinhos tintos",gp=gpar(fontsize=18,font=3)))
+
+```
+
+No caso dos vinhos brancos, observamos que o aumento das notas de qualidade, acompanha 
+uma variação positiva para o teor alcoólico, negativa para densidade e cloretos.
+
+
+```{r}
+# Relacao Qualidade e tres variaveis com mais correlacao para os vinhos brancos
+
+p1 <- ggplot(aes(x = alcohol, y =quality), data = vinho_branco) +
+  geom_point(alpha = 1/10, size = 1/2, position = 'jitter') +
+  #geom_line(aes(), stat = "summary", fun.y = mean)
+  geom_smooth(se = FALSE,color='red') +
+  xlab("% by volume") +
+  ylab("Qualidade") +
+  ggtitle("Alcohol")
+
+p2 <- ggplot(aes(x = density, y =quality), data = vinho_branco) +
+  geom_point(alpha = 1/10, size = 1/2, position = 'jitter') +
+  #geom_line(aes(), stat = "summary", fun.y = mean)
+  geom_smooth(se = FALSE,color='red')  +
+  scale_x_continuous(limits = c(0.990,quantile(vinho_branco$density, 0.99))) +
+  xlab("g / cm^3") +
+  ylab("Qualidade") +
+  ggtitle("Density")
+
+p3 <- ggplot(aes(x = chlorides, y =quality), data = vinho_branco) +
+  geom_point(alpha = 1/10, size = 1/2, position = 'jitter') +
+  #geom_line(aes(), stat = "summary", fun.y = mean)
+  geom_smooth(se = FALSE,color='red') +
+  scale_x_log10() +
+  xlab("sodium chloride - g / dm^3") +
+  ylab("Qualidade") +
+  ggtitle("Chlorides")
+
+grid.arrange(p1, p2, p3, ncol=3, top = textGrob("3 variáveis com maior correlação - vinhos brancos",gp=gpar(fontsize=18,font=3)))
+```
+
+### O relacionamento entre Alcohol, Volatile.acidity e Quality nos vinhos tintos
+
+Como os maiores índices de correlação da variável quality são com as variáveis
+alcohol e volatile.acidity para o conjunto de dados dos vinhos tintos, iremos representá-las em um gráfico segmentado pelo
+grau de avaliação.
+
+
+```{r echo=FALSE, Multivariate_Plots}
+#
+#Quality possui as maiores correlações com as variaveis: alcohol e volatile.acidity. No grafico abaixo relacionamos alcohol e volatile.acidity, destacando a variavel quality e segmentando a visualização por Avaliação.
+ggplot(data = vinho_tinto, aes(x = alcohol, y = volatile.acidity, color=as.factor(quality))) +
+    facet_wrap(~avaliacao) +
+    scale_x_continuous(lim = c(8, quantile(vinho_tinto$alcohol, 0.99))) +
+    scale_y_continuous(lim = c(0, quantile(vinho_tinto$volatile.acidity, 0.99))) +
+    geom_point(alpha = 0.2, size = 3, position = 'jitter') +
+  scale_color_brewer(type = 'qual',
+    guide = guide_legend(title = 'Avaliação', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = 1) +
+    stat_smooth(method = 'lm') +
+  xlab("Alcohol (% by volume)") +
+  ylab("Volatile acidity (acetic acid - g / dm^3)") +
+  ggtitle("Relacionamento dos vinhos tintos entre Teor Alcoólico e Acidez Volátil")
+
+#====================
+
+```
+
+### O relacionamento entre Alcohol, Density e Quality nos vinhos brancos
+
+Como os maiores índices de correlação da variável quality são com as variáveis
+alcohol e volatile.acidity para o conjunto de dados dos vinhos brancos, iremos representá-las em um gráfico segmentado pelo
+grau de avaliação.
+
+
+```{r}
+#
+#Quality possui as maiores correlações com as variaveis: alcohol e volatile.acidity. No grafico abaixo relacionamos alcohol e volatile.acidity, destacando a variavel quality e segmentando a visualização por Avaliação.
+ggplot(data = vinho_branco, aes(x = alcohol, y = density, color=as.factor(quality))) +
+    facet_wrap(~avaliacao) +
+    scale_x_continuous(lim = c(8, quantile(vinho_branco$alcohol, 0.99))) +
+    scale_y_continuous(lim = c(0.990, quantile(vinho_branco$density, 0.99))) +
+    geom_point(alpha = 0.075, size = 3, position = 'jitter') +
+  scale_color_brewer(type = 'qual',
+    guide = guide_legend(title = 'Avaliação', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = 1) +
+    stat_smooth(method = 'lm') +
+  xlab("Alcohol (% by volume)") +
+  ylab("Density (g / cm^3)") +
+  ggtitle("Relacionamento dos vinhos brancos entre Teor Alcoólico e Densidade")
+```
+
+#Referências utilizadas:
+
+* https://s3.amazonaws.com/content.udacity-data.com/courses/ud651/diamondsExample_2016-05.html
+* http://rstudio-pubs-static.s3.amazonaws.com/198466_b17daa66ce6748a6a91cd27017608720.html
+* http://rstudio-pubs-static.s3.amazonaws.com/53416_83b9685bc8c54afebcbb1e65a7c688fc.html
+* https://rpubs.com/inageorgescu/whitewine2
+* http://www.sthda.com/english/wiki/visualize-correlation-matrix-using-correlogram
+* https://www.wardsci.com/www.wardsci.com/images/Chemistry_of_Wine.pdf
+* https://revistaadega.uol.com.br/artigo/o-alcool-e-acidez-dos-vinhos_6055.html
+* https://rpubs.com/szon0111/P4#targetText=Wine%20seems%20to%20have%20better,is%20between%208%20and%2010
+* http://periodicos.ses.sp.bvs.br/scielo.php?script=sci_arttext&pid=S0073-98552011000200009&lng=pt&nrm=iso
